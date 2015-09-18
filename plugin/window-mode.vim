@@ -4,43 +4,35 @@
 
 " This calls interactive-window-mode
 nmap gw        :call InteractiveWindow()<CR>
-nmap <leader>w :call InteractiveWindow()<CR>
 
-" Once there, you can: 
-"
-" resize            j/k, h/l
-" max-size          f (height), F (width), 
-" fullscreen        o (!closes all others)
-" equalize          =
-" width=text        |, <BAR> 
-"
-" [v]split          s/v
-" close             x/c
-"
-" focus             
-"    direction      Alt + [jkhl]
-"    next/prev      n/p
-"
-" move window       H/J/K/L  
-"                   m{h/j/k/l} or g{h/j/k/l}
-" exchange w next   mx or gx
-"
-" cycle buffer      n/p, <S-TAB>/<TAB>
-" exit              <ESC>, <CR>
+command! OpenBufferInNewTab tab sview %
+command! ListWindows echo <SID>listWindows(1)
+command! GoFirstListedWindow call GoFirstListedWindow()
+command! GoNextListedWindow call GoNextListedWindow()
 
-nnoremap <F1> :ListWindows<CR>
-command! ListWindows call <SID>listWindows()
+let winmode  = {}
 
-let winmode = 'normal'
-let winmap = {}
+let winmode.trigger = '<leader>w'
+let winmode.options = {
+\ 'start': '',
+\ 'stop':  '',
+\ 'after': '',
+\ }
+
+let winmode.keys    = ''
+let winmode.count   = ''
+let winmode.submode = 'normal'
+
+let winmap   = {}
 let winmap.normal = {
-\
 \ "h": "normal! \<C-w><" , "=": "normal! \<C-w>=" ,
 \ "j": "normal! \<C-w>-" , "f": "normal! \<C-w>_" ,
 \ "k": "normal! \<C-w>+" , "F": "normal! \<C-w>|" ,
 \ "l": "normal! \<C-w>>" , "o": "normal! \<C-w>o" ,
 \
-\ "|": "normal! :\<C-r>=&tw\<CR>wincmd |\<CR>" ,
+\ "|": "exe g:winmode.count.'wincmd |'",
+\ "\\": "exe g:winmode.count.'wincmd _'",
+\ "&": "normal! :\<C-r>=&tw\<CR>wincmd |\<CR>" ,
 \ 
 \ "\<A-h>": "normal! \<C-w>h" ,  "H": "normal! \<C-w>H" ,
 \ "\<A-j>": "normal! \<C-w>j" ,  "J": "normal! \<C-w>J" ,
@@ -52,13 +44,17 @@ let winmap.normal = {
 \ "s": "normal! \<C-w>s" , "\<TAB>": "normal! :bn\<CR>" ,
 \ "v": "normal! \<C-w>v" , "\<S-TAB>": "normal! :bp\<CR>" ,
 \ 
-\ "w": "normal! \<C-w>w" ,
-\ "W": "normal! \<C-w>w" ,
-\ "P": "normal! \<C-w>P" ,
+\ "w": "normal! \<C-w>w" , "\<A-w>": "normal! \<C-w>p" ,
+\ "W": "normal! \<C-w>W" ,
 \ "q": "normal! :copen\<CR>" ,
 \
-\ "g": "let g:winmode='move'" ,
-\ "m": "let g:winmode='move'" ,
+\ "m": "let g:winmode.submode='move'" ,
+\ ":": "let g:winmode.submode='set'" ,
+\ "t": "let g:winmode.submode='tab'" ,
+\
+\ "e": "call GoFirstListedWindow()" ,
+\ "d": "bdelete" ,
+\ ";": "terminal" ,
 \
 \ "\<ESC>": "let exitwin=1" ,
 \ "\<CR>": "let exitwin=1" ,
@@ -70,38 +66,104 @@ let winmap.move = {
 \ "k": "normal! \<C-w>K" ,
 \ "l": "normal! \<C-w>L" ,
 \ "x": "normal! \<C-w>x" ,
+\ "r": "normal! \<C-w>r" ,
 \ "\<ESC>": "\" NOP" ,
 \ }
+
+let winmap.set = {
+\ "w": "exe g:winmode.count.'wincmd |'",
+\ "h": "exe g:winmode.count.'wincmd _'",
+\ "W": "wincmd |",
+\ "H": "wincmd _",
+\ "\<ESC>": "let resetmode=1" ,
+\ }
+
+let winmap.tab = {
+\ "o": "tab sview %" ,
+\ "e": "tabnew" ,
+\ "x": "tabclose" ,
+\ "n": "tabnext" ,
+\ "p": "tabprevious" ,
+\
+\ "w": "let g:winmode.submode='normal'" ,
+\ "\<ESC>": "let exitwin=1" ,
+\ }
+
+function winmap.setsize () dict
+    if !empty(g:winmode.count)
+    end
+endfunction
 
 let winmap.escape = ["\<ESC>", "q"]
 
 function! InteractiveWindow() " {{{
-    let prompt = " (current:" . bufname(winbufnr(0)) . ")"
-    let exitwin = 0
-    let char    = ''
+    let exitwin  = 0
 
-    call s:echo(prompt)
+    call s:prompt("window-mode started")
     while !exitwin
-        let resetwinmode = 0
+        let resetmode = 0
+
+        let mode = g:winmode.submode
         let char = s:getChar()
-        if !exists('g:winmap[g:winmode][l:char]')
-            let g:winmode = 'normal'
-            call s:echoerr('Unmapped char: ' . char)
-            continue | en
+        let lhs = char
 
-        let mapping = g:winmap[g:winmode][char]
-        let prompt = " " . char
-        if g:winmode is 'move' 
-            let resetwinmode = 1 | en
+        if !exists('g:winmap[l:mode][l:lhs]')
+            if char =~ '^\d$'
+                let g:winmode.count .= char
+                call s:prompt('')
+                call s:echo(g:winmode.count, 'TextWarning')
+            else
+                let g:winmode.submode = 'normal'
+                call s:prompt('')
+                call s:echo(lhs, 'TextInfo')
+            end
+            continue
+        end
 
-        call s:echo(' executing ')
+        let rhs = g:winmap[mode][lhs]
 
-        exe mapping
-        if resetwinmode == 1 | let g:winmode = 'normal' | en
+        if g:winmode.submode is 'move' 
+            let resetmode = 1 | en
 
-        call s:echo(' ')
+        let wincount = g:winmode.count
+
+        call s:echo('executing', 'TextWarning') | exe rhs
+
+        if exitwin   | break                            | end
+        if resetmode | let g:winmode.submode = 'normal' | end
+
+        let g:winmode.count = ''
+        let g:winmode.keys  = ''
+        call s:prompt('')
     endwhile
+
+    redraw
+    call s:echo("exited window-mode ", 'TextInfo')
+    call s:echo(":)\n", 'TextWarning')
 endfunction " }}}
+
+function! GoNextListedWindow () "{{{
+    let windows = s:listWindows()
+    if !len(windows) || len(windows) == 1
+        wincmd w
+        return 
+    endif
+    let idx = index(windows, winnr())
+    if idx == -1
+        execute windows[0] . 'wincmd w'
+    else
+        let idx = (idx+1 == len(windows)) ? 0 : idx + 1
+        execute windows[idx] . 'wincmd w'
+    endif
+endfunc "}}}
+
+function! GoFirstListedWindow () "{{{
+    let wins = s:listWindows()
+    if !len(windows)
+        return | endif
+    let winID = (len(wins)) ? wins[0] : 0
+    execute  winID . 'wincmd w'
+endfunc "}}}
 
 fu! s:getChar() " {{{
     let char = getchar()
@@ -110,35 +172,39 @@ fu! s:getChar() " {{{
         return char          | end
 endfun " }}}
 
-hi WindowModeRed   ctermfg=red   guifg=#bb1111 
-hi WindowModeGreen ctermfg=green guifg=#11bb11 
+fu! s:prompt(m, ...) "{{{
+    redraw | call s:echo("[".g:winmode.submode."]> ". a:m) 
+    if !empty(a:000)
+        for msg in range(len(a:000))
+            call call('run_hello', ['foo'] + a:000)
+        endfor
+    end
+endfu "}}}
 
-fu! s:e (m)
-    let m = a:m
-    if empty(m)
-        let m = " (buffer: ".bufname(winbufnr(0)).")" | end
-    redraw | echo "[" . g:winmode . "]> " . m 
-    echohl None
-endfu
+fu! s:echo (...) " {{{
+    " (mess, hl, re)
+    let len = len(a:000)
+    if len==3 || (len==2 && type(a:2)==0)
+        redraw      
+    end
+    if len==3 || (len==2 && type(a:2)==1)
+        exe 'echohl '.a:2
+    else
+        echohl TextSuccess | end
+    echon a:1 | echohl None
+endfu " }}}
 
-function! s:echo (message) " {{{
-    echohl WindowModeGreen 
-    call s:e(a:message)
-endfunction " }}}
-
-function! s:echoerr (message) " {{{
-    echohl WindowModeRed
-    call s:e(a:message)
-endfunction " }}}
-
-function! s:listWindows () " {{{
-    let windows = map(tabpagebuflist(), 'bufwinnr(v:val)')
-    for window in windows
-        let bufnr = winbufnr(window)
-        let bufname = bufname(bufnr)
+function! s:listWindows (...) " {{{
+    let buffers = tabpagebuflist()
+    let list = []
+    for winID in range(1, winnr('$'))
+        let bufnr = winbufnr(winID)
         let isListed = buflisted(bufnr)
-        echo '[' . window . ': ' . bufname . ' ' . isListed . ']'  
+        if (isListed || a:0) 
+            call add(list, winID)
+        end
     endfor
+    return list
 endfunction " }}}
 
-"\  . " {" . strtrans(join(keys(g:winmap[g:winmode]), ', ')) . "}"
+"\  . " {" . strtrans(join(keys(g:winmap[g:winmode.submode]), ', ')) . "}"
