@@ -3,12 +3,9 @@
 " Exec: !::exe [source %]
 
 " This calls interactive-window-mode
-nmap gw        :call InteractiveWindow()<CR>
+"nmap gw        :InteractiveWindow<CR>
 
-command! OpenBufferInNewTab tab sview %
-command! ListWindows echo <SID>listWindows(1)
-command! GoFirstListedWindow call GoFirstListedWindow()
-command! GoNextListedWindow call GoNextListedWindow()
+command! InteractiveWindow call InteractiveWindow()
 
 let winmode  = {}
 
@@ -52,7 +49,6 @@ let winmap.normal = {
 \ ":": "let g:winmode.submode='set'" ,
 \ "t": "let g:winmode.submode='tab'" ,
 \
-\ "e": "call GoFirstListedWindow()" ,
 \ "d": "bdelete" ,
 \ ";": "terminal" ,
 \
@@ -88,11 +84,6 @@ let winmap.tab = {
 \ "w": "let g:winmode.submode='normal'" ,
 \ "\<ESC>": "let exitwin=1" ,
 \ }
-
-function winmap.setsize () dict
-    if !empty(g:winmode.count)
-    end
-endfunction
 
 let winmap.escape = ["\<ESC>", "q"]
 
@@ -141,29 +132,6 @@ function! InteractiveWindow() " {{{
     call s:echo("exited window-mode ", 'TextInfo')
     call s:echo(":)\n", 'TextWarning')
 endfunction " }}}
-
-function! GoNextListedWindow () "{{{
-    let windows = s:listWindows()
-    if !len(windows) || len(windows) == 1
-        wincmd w
-        return 
-    endif
-    let idx = index(windows, winnr())
-    if idx == -1
-        execute windows[0] . 'wincmd w'
-    else
-        let idx = (idx+1 == len(windows)) ? 0 : idx + 1
-        execute windows[idx] . 'wincmd w'
-    endif
-endfunc "}}}
-
-function! GoFirstListedWindow () "{{{
-    let wins = s:listWindows()
-    if !len(windows)
-        return | endif
-    let winID = (len(wins)) ? wins[0] : 0
-    execute  winID . 'wincmd w'
-endfunc "}}}
 
 fu! s:getChar() " {{{
     let char = getchar()
