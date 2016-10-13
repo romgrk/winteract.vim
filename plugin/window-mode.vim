@@ -30,7 +30,7 @@ let winmap.normal = {
 \ "|": "exe g:winmode.count.'wincmd |'",
 \ "\\": "exe g:winmode.count.'wincmd _'",
 \ "&": "normal! :\<C-r>=&tw\<CR>wincmd |\<CR>" ,
-\ 
+\
 \ "\<A-h>": "normal! \<C-w>h" ,  "H": "normal! \<C-w>H" ,
 \ "\<A-j>": "normal! \<C-w>j" ,  "J": "normal! \<C-w>J" ,
 \ "\<A-k>": "normal! \<C-w>k" ,  "K": "normal! \<C-w>K" ,
@@ -40,7 +40,7 @@ let winmap.normal = {
 \ "c": "normal! \<C-w>c" , "p": "normal! :bp\<CR>" ,
 \ "s": "normal! \<C-w>s" , "\<TAB>": "normal! :bn\<CR>" ,
 \ "v": "normal! \<C-w>v" , "\<S-TAB>": "normal! :bp\<CR>" ,
-\ 
+\
 \ "w": "normal! \<C-w>w" , "\<A-w>": "normal! \<C-w>p" ,
 \ "W": "normal! \<C-w>W" ,
 \ "q": "normal! :copen\<CR>" ,
@@ -113,7 +113,7 @@ function! InteractiveWindow() " {{{
 
         let rhs = g:winmap[mode][lhs]
 
-        if g:winmode.submode is 'move' 
+        if g:winmode.submode is 'move'
             let resetmode = 1 | en
 
         let wincount = g:winmode.count
@@ -130,7 +130,7 @@ function! InteractiveWindow() " {{{
 
     redraw
     call s:echo("exited window-mode ", 'TextInfo')
-    call s:echo(":)\n", 'TextWarning')
+    call s:echo(":)", 'TextWarning')
 endfunction " }}}
 
 fu! s:getChar() " {{{
@@ -141,7 +141,7 @@ fu! s:getChar() " {{{
 endfun " }}}
 
 fu! s:prompt(m, ...) "{{{
-    redraw | call s:echo("[".g:winmode.submode."]> ". a:m) 
+    redraw | call s:echo("[".g:winmode.submode."]> ". a:m)
     if !empty(a:000)
         for msg in range(len(a:000))
             call call('run_hello', ['foo'] + a:000)
@@ -153,7 +153,7 @@ fu! s:echo (...) " {{{
     " (mess, hl, re)
     let len = len(a:000)
     if len==3 || (len==2 && type(a:2)==0)
-        redraw      
+        redraw
     end
     if len==3 || (len==2 && type(a:2)==1)
         exe 'echohl '.a:2
@@ -168,7 +168,7 @@ function! s:listWindows (...) " {{{
     for winID in range(1, winnr('$'))
         let bufnr = winbufnr(winID)
         let isListed = buflisted(bufnr)
-        if (isListed || a:0) 
+        if (isListed || a:0)
             call add(list, winID)
         end
     endfor
