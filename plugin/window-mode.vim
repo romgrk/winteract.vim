@@ -152,7 +152,7 @@ function! InteractiveWindow() " {{{
 
     redraw
     call s:echo("exited window-mode ", 'TextInfo')
-    call s:echo(":)\n", 'TextWarning')
+    call s:echo(":)", 'TextWarning')
 endfunction " }}}
 
 " Yank window
