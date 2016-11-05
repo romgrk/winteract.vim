@@ -8,6 +8,8 @@
 command! InteractiveWindow call InteractiveWindow()
 
 let winmode  = {}
+let winmode.persistent = {}
+let winmode.register = [ 0, 0 ]
 
 let winmode.trigger = '<leader>w'
 let winmode.options = {
@@ -20,6 +22,7 @@ let winmode.keys    = ''
 let winmode.count   = ''
 let winmode.submode = 'normal'
 
+if !exists('g:winmap')
 let winmap   = {}
 let winmap.normal = {
 \ "h": "normal! \<C-w><" , "=": "normal! \<C-w>=" ,
@@ -30,27 +33,30 @@ let winmap.normal = {
 \ "|": "exe g:winmode.count.'wincmd |'",
 \ "\\": "exe g:winmode.count.'wincmd _'",
 \ "&": "normal! :\<C-r>=&tw\<CR>wincmd |\<CR>" ,
-\ 
+\
 \ "\<A-h>": "normal! \<C-w>h" ,  "H": "normal! \<C-w>H" ,
 \ "\<A-j>": "normal! \<C-w>j" ,  "J": "normal! \<C-w>J" ,
 \ "\<A-k>": "normal! \<C-w>k" ,  "K": "normal! \<C-w>K" ,
 \ "\<A-l>": "normal! \<C-w>l" ,  "L": "normal! \<C-w>L" ,
 \
 \ "x": "normal! \<C-w>c" , "n": "normal! :bn\<CR>" ,
-\ "c": "normal! \<C-w>c" , "p": "normal! :bp\<CR>" ,
+\ "c": "normal! \<C-w>c" , "N": "normal! :bp\<CR>" ,
 \ "s": "normal! \<C-w>s" , "\<TAB>": "normal! :bn\<CR>" ,
 \ "v": "normal! \<C-w>v" , "\<S-TAB>": "normal! :bp\<CR>" ,
-\ 
+\ "d": "bdelete" ,
+\
 \ "w": "normal! \<C-w>w" , "\<A-w>": "normal! \<C-w>p" ,
 \ "W": "normal! \<C-w>W" ,
 \ "q": "normal! :copen\<CR>" ,
+\ ";": "terminal" ,
+\
+\ "y": "call g:winmode.yank()",
+\ "p": "call g:winmode.paste()",
+\ "g": "call g:winmode.paste()",
 \
 \ "m": "let g:winmode.submode='move'" ,
 \ ":": "let g:winmode.submode='set'" ,
 \ "t": "let g:winmode.submode='tab'" ,
-\
-\ "d": "bdelete" ,
-\ ";": "terminal" ,
 \
 \ "\<ESC>": "let exitwin=1" ,
 \ "\<CR>": "let exitwin=1" ,
@@ -74,21 +80,35 @@ let winmap.set = {
 \ "\<ESC>": "let resetmode=1" ,
 \ }
 
+let winmode.persistent['tab'] = 1
 let winmap.tab = {
+\ ":": "exe ' ' . _#Input('exe:', 'tab ')" ,
+\ ";": "tab terminal" ,
 \ "o": "tab sview %" ,
-\ "e": "tabnew" ,
+\ "e": "tabedit %" ,
 \ "x": "tabclose" ,
-\ "n": "tabnext" ,
-\ "p": "tabprevious" ,
+\ "d": "tabclose" ,
+\ "c": "tabclose" ,
+\ "\<A-,>": "bprevious" ,
+\ "\<A-.>": "bnext" ,
+\ "\<A-k>": "tabprevious" ,
+\ "\<A-j>": "tabnext" ,
+\ "[": "tabprevious" ,
+\ "]": "tabnext" ,
+\ "n": "tabedit %" ,
+\ "<": "tabm -1" ,
+\ ">": "tabm +1" ,
 \
 \ "w": "let g:winmode.submode='normal'" ,
 \ "\<ESC>": "let exitwin=1" ,
 \ }
+end
 
 let winmap.escape = ["\<ESC>", "q"]
 
 function! InteractiveWindow() " {{{
     let exitwin  = 0
+    let g:winmode.submode = 'normal'
 
     call s:prompt("window-mode started")
     while !exitwin
@@ -104,7 +124,9 @@ function! InteractiveWindow() " {{{
                 call s:prompt('')
                 call s:echo(g:winmode.count, 'TextWarning')
             else
-                let g:winmode.submode = 'normal'
+                if !get(g:winmode['persistent'], g:winmode.submode, 0)
+                    let g:winmode.submode = 'normal'
+                end
                 call s:prompt('')
                 call s:echo(lhs, 'TextInfo')
             end
@@ -113,7 +135,7 @@ function! InteractiveWindow() " {{{
 
         let rhs = g:winmap[mode][lhs]
 
-        if g:winmode.submode is 'move' 
+        if g:winmode.submode is 'move'
             let resetmode = 1 | en
 
         let wincount = g:winmode.count
@@ -133,27 +155,47 @@ function! InteractiveWindow() " {{{
     call s:echo(":)\n", 'TextWarning')
 endfunction " }}}
 
+" Yank window
+function! g:winmode.yank() dict
+    let self.register = [ bufnr('%'), winsaveview() ]
+    call s:echo(
+                \ printf('Yanked %s', string(self.register)),
+                \ 'TextInfo')
+endfunc
+" Paste window
+function! g:winmode.paste() dict
+    if !exists('self.register')
+        return
+    end
+
+    let [ bufnr, winview ] = self.register
+    if (bufnr && !empty(winview))
+        exec 'buffer ' . bufnr
+        call winrestview(winview)
+    end
+endfunc
+
+
+" Utils
 fu! s:getChar() " {{{
     let char = getchar()
     if char =~ '^\d\+$'
         return nr2char(char) | else
         return char          | end
 endfun " }}}
-
 fu! s:prompt(m, ...) "{{{
-    redraw | call s:echo("[".g:winmode.submode."]> ". a:m) 
+    redraw | call s:echo("[".g:winmode.submode."]> ". a:m)
     if !empty(a:000)
         for msg in range(len(a:000))
             call call('run_hello', ['foo'] + a:000)
         endfor
     end
 endfu "}}}
-
 fu! s:echo (...) " {{{
     " (mess, hl, re)
     let len = len(a:000)
     if len==3 || (len==2 && type(a:2)==0)
-        redraw      
+        redraw
     end
     if len==3 || (len==2 && type(a:2)==1)
         exe 'echohl '.a:2
@@ -162,17 +204,3 @@ fu! s:echo (...) " {{{
     echon a:1 | echohl None
 endfu " }}}
 
-function! s:listWindows (...) " {{{
-    let buffers = tabpagebuflist()
-    let list = []
-    for winID in range(1, winnr('$'))
-        let bufnr = winbufnr(winID)
-        let isListed = buflisted(bufnr)
-        if (isListed || a:0) 
-            call add(list, winID)
-        end
-    endfor
-    return list
-endfunction " }}}
-
-"\  . " {" . strtrans(join(keys(g:winmap[g:winmode.submode]), ', ')) . "}"
