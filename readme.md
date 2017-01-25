@@ -29,8 +29,8 @@ Once there, you can:
 
 ```
   - resize            j/k/h/l
-  - fullwidth         f
-  - fullheight        F
+  - fullwidth         F
+  - fullheight        f
   - fullscreen        o (!closes all others)
   - equalize          =
   - width=count       [count]|
